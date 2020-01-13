@@ -328,6 +328,6 @@ if __name__ == "__main__":
                 last_day = calendar.monthrange(year, month)[1]
                 for day in range(1, last_day):
                     print("download {} {}/{}/{}".format(site_id, year, month, day))
-                    #download(s, site_id, year, month, day)
+                    download(s, site_id, year, month, day)
 
         
