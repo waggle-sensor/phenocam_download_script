@@ -221,8 +221,35 @@ def download(s, sitename, year, month, day, start_time, end_time):
         # final filename only when download complete
         os.rename(zip_file_part, zip_file)
 
-        targetDir = os.path.join(mirrorDir, sitename, str(year), "{:02d}".format(month), "{:02d}".format(day))
-        Path(targetDir).mkdir(mode=directory_permission, parents=True, exist_ok=True)
+
+
+        
+
+        if not os.path.isdir(mirrorDir):
+            os.mkdir(mirrorDir, mode=directory_permission)
+
+        siteDir = os.path.join(mirrorDir, sitename)
+        if not os.path.isdir(siteDir):
+            os.mkdir(siteDir, mode=directory_permission)
+
+        yearDir = os.path.join(siteDir, str(year))
+        if not os.path.isdir(yearDir):
+            os.mkdir(yearDir, mode=directory_permission)
+
+
+        monthDir = os.path.join(yearDir,  "{:02d}".format(month))
+        if not os.path.isdir(monthDir):
+            os.mkdir(monthDir, mode=directory_permission)
+
+        targetDir = os.path.join(monthDir,  "{:02d}".format(day))
+        if not os.path.isdir(targetDir):
+            os.mkdir(targetDir, mode=directory_permission)
+        
+
+
+        #targetDir = os.path.join(mirrorDir, sitename, str(year), "{:02d}".format(month), "{:02d}".format(day))
+
+        #Path(targetDir).mkdir(mode=directory_permission, parents=True, exist_ok=True)
 
         print("unzipping {} to {} ...".format(zip_file, targetDir))
         with zipfile.ZipFile(zip_file, 'r') as myzip:
