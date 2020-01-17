@@ -235,11 +235,11 @@ def download(s, sitename, year, month, day, start_time, end_time):
                 # copy file (taken from zipfile's extract)
                 source = myzip.open(member)
                 target_jpg = os.path.join(targetDir, filename)
-                target = os.open(target_jpg, os.O_WRONLY|os.O_CREAT, mode=file_permisson)
-                #target = open(target_jpg, "wb")
+                
+                target = open(target_jpg, "wb")
                 with source, target:
                     shutil.copyfileobj(source, target)
-
+                os.chmod(target_jpg, file_permisson)
 
             #myzip.extractall(path=mirrorDir+'/')
 
