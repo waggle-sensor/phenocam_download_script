@@ -25,7 +25,7 @@ TMPDIR = '/var/tmp'
 
 
 file_permisson = 0o664
-directory_permission = 775
+directory_permission = 0o775
 
 
 
