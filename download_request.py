@@ -24,6 +24,11 @@ LOGIN_URL= PHENOCAM_URL + "/webcam/accounts/login/"
 TMPDIR = '/var/tmp'
 
 
+file_permisson = 0o664
+directory_permission = 0o775
+
+
+
 def login(s, username, password):
     if verbose:
             print("GET request for login page")
@@ -217,7 +222,7 @@ def download(s, sitename, year, month, day, start_time, end_time):
         os.rename(zip_file_part, zip_file)
 
         targetDir = os.path.join(mirrorDir, sitename, str(year), "{:02d}".format(month), "{:02d}".format(day))
-        Path(targetDir).mkdir(parents=True, exist_ok=True)
+        Path(targetDir).mkdir(mode=directory_permission, parents=True, exist_ok=True)
 
         print("unzipping {} to {} ...".format(zip_file, targetDir))
         with zipfile.ZipFile(zip_file, 'r') as myzip:
@@ -230,7 +235,8 @@ def download(s, sitename, year, month, day, start_time, end_time):
                 # copy file (taken from zipfile's extract)
                 source = myzip.open(member)
                 target_jpg = os.path.join(targetDir, filename)
-                target = open(target_jpg, "wb")
+                target = os.open(target_jpg, os.O_WRONLY|os.O_CREAT, mode=file_permisson)
+                #target = open(target_jpg, "wb")
                 with source, target:
                     shutil.copyfileobj(source, target)
 
