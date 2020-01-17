@@ -25,7 +25,7 @@ TMPDIR = '/var/tmp'
 
 
 file_permisson = 0o664
-directory_permission = 0o775
+directory_permission = 775
 
 
 
@@ -226,24 +226,29 @@ def download(s, sitename, year, month, day, start_time, end_time):
         
 
         if not os.path.isdir(mirrorDir):
-            os.mkdir(mirrorDir, mode=directory_permission)
+            os.mkdir(mirrorDir)
+            os.chmod(mirrorDir, directory_permission)
 
         siteDir = os.path.join(mirrorDir, sitename)
         if not os.path.isdir(siteDir):
-            os.mkdir(siteDir, mode=directory_permission)
+            os.mkdir(siteDir)
+            os.chmod(siteDir, directory_permission)
 
         yearDir = os.path.join(siteDir, str(year))
         if not os.path.isdir(yearDir):
-            os.mkdir(yearDir, mode=directory_permission)
+            os.mkdir(yearDir)
+            os.chmod(yearDir, directory_permission)
 
 
         monthDir = os.path.join(yearDir,  "{:02d}".format(month))
         if not os.path.isdir(monthDir):
-            os.mkdir(monthDir, mode=directory_permission)
+            os.mkdir(monthDir)
+            os.chmod(monthDir, directory_permission)
 
         targetDir = os.path.join(monthDir,  "{:02d}".format(day))
         if not os.path.isdir(targetDir):
-            os.mkdir(targetDir, mode=directory_permission)
+            os.mkdir(targetDir)
+            os.chmod(targetDir, directory_permission)
         
 
 
