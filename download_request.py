@@ -14,6 +14,8 @@ import argparse
 import zipfile
 import glob
 import json
+from lxml import etree
+from pathlib import Path
 
 
 PHENOCAM_URL = "https://phenocam.sr.unh.edu"
@@ -70,6 +72,9 @@ def glob_jpg_files(mirror_files_directory, sitename, year, month, day):
     
     file_prefix = "_".join([sitename, str(year), "{:02d}".format(month), "{:02d}".format(day)])
     
+    if verbose:
+        print("file_prefix: ", file_prefix)
+        print("mirror_files_directory: ", mirror_files_directory)
 
     absoulte_prefix = os.path.join(mirror_files_directory, file_prefix)
     if verbose:
@@ -80,7 +85,8 @@ def glob_jpg_files(mirror_files_directory, sitename, year, month, day):
     # this does not recognize partial downloads
     return jpg_files_count 
 
-def download(s, sitename, year, month, day):
+
+def download(s, sitename, year, month, day, start_time, end_time):
     if day:
         start_date = "{}-{:02d}-{:02d}".format(year, month, day)
         end_date = "{}-{:02d}-{:02d}".format(year, month, day)
@@ -91,7 +97,7 @@ def download(s, sitename, year, month, day):
 
 
 
-    mirror_files_directory = os.path.join(mirrorDir,'phenocamdata', sitename, str(year), "{:02d}".format(month))
+    mirror_files_directory = os.path.join(mirrorDir, sitename, str(year), "{:02d}".format(month), "{:02d}".format(day))
         
     if os.path.isdir(mirror_files_directory):
         jpg_files_count = glob_jpg_files(mirror_files_directory, sitename, year, month, day)
@@ -112,9 +118,15 @@ def download(s, sitename, year, month, day):
         print("error, got status: {}".format(response.status_code))
         sys.exit(1)
 
+    
+
+    
+
     # grab the html from the download page
     download_html = lxml.html.fromstring(response.text)
-
+    
+    #"No files matching these criteria were found."
+   
     # get the hidden inputs
     hidden_inputs = download_html.xpath(r'//form//input[@type="hidden"]')
 
@@ -130,13 +142,14 @@ def download(s, sitename, year, month, day):
     form_data['site'] = sitename
 
     
-        
+    
+
 
     form_data["start_date"] = start_date
     form_data["end_date"] = end_date
 
-    form_data["start_time"] = "00:00"
-    form_data["end_time"] = "23:59"
+    form_data["start_time"] = start_time
+    form_data["end_time"] = end_time
     form_data["ir_flag"] = ""
 
     # print("form data: ", form_data)
@@ -156,6 +169,7 @@ def download(s, sitename, year, month, day):
 
     # parse page and get script which redirects 
     download_html = lxml.html.fromstring(r.text)
+
     scripts = download_html.xpath(r'//script')
     if len(scripts) < 4:
         if debug:
@@ -168,8 +182,8 @@ def download(s, sitename, year, month, day):
     redirect_regex = re.compile('window.location.href = \'(.+)\'}')
     mo = redirect_regex.search(redirect_script)
     if mo == None:
-        sys.stderr.write('Extracting redirect url failed\n')
-        sys.exit(1)
+        sys.stderr.write('Extracting redirect url failed, continue\n')
+        return
     redirect_url = mo[1]
     redirect_url = PHENOCAM_URL + redirect_url
     # print('redirect URL: ', redirect_url)
@@ -202,10 +216,26 @@ def download(s, sitename, year, month, day):
         # final filename only when download complete
         os.rename(zip_file_part, zip_file)
 
-        
-        print("unzipping {} to {} ...".format(zip_file, mirrorDir))
+        targetDir = os.path.join(mirrorDir, sitename, str(year), "{:02d}".format(month), "{:02d}".format(day))
+        Path(targetDir).mkdir(parents=True, exist_ok=True)
+
+        print("unzipping {} to {} ...".format(zip_file, targetDir))
         with zipfile.ZipFile(zip_file, 'r') as myzip:
-            myzip.extractall(path=mirrorDir+'/')
+            for member in myzip.namelist():
+                filename = os.path.basename(member)
+                # skip directories
+                if not filename:
+                    continue
+
+                # copy file (taken from zipfile's extract)
+                source = myzip.open(member)
+                target_jpg = os.path.join(targetDir, filename)
+                target = open(target_jpg, "wb")
+                with source, target:
+                    shutil.copyfileobj(source, target)
+
+
+            #myzip.extractall(path=mirrorDir+'/')
 
         os.remove(zip_file)
 
@@ -250,21 +280,61 @@ if __name__ == "__main__":
 
     #print(config_file)
 
-    site_ids = []
+    download_specs = []
+
+    
 
     with open(config_file) as test:
         for line in test:
             #print(line)
             # remove comments
             line = line.split('#', 1)[0]
-            site_id = line.strip()
+            
+            line_array = line.split(',', 5)
+            site_id = line_array[0].strip()
             if site_id == "":
                 continue
+            
+            if len(line_array) < 5:
+                print("Could not parse: ", line, line_array)
+                sys.exit(1)
+
+            years_str = line_array[1].strip()
+            months_str = line_array[2].strip()
+            start_time = line_array[3].strip()
+            end_time = line_array[4].strip()
+
+            if months_str == '*' or months_str == '':
+                months = [ *range(1, 13) ] # all months
+            else:
+                months = months_str.split(';')
+                months = [int(x) for x in months] # convert to ints
+
+            if years_str == '*' or years_str == '':
+                years_array = [2018, 2019, 2020]
+            else:
+                years_array = years_str.split(';')
+                years_array = [int(x) for x in years_array] # convert to ints
+
+            download_spec = {
+                'site_id': site_id,
+                'years': years_array,
+                'months': months,
+                'start_time': start_time,
+                'end_time': end_time
+            }
+
+            if verbose:
+                print(download_spec)
+           # sys.exit(1)
             #print(site_id)
-            site_ids.append(site_id)
+
+
+
+            download_specs.append(download_spec)
    
 
-    if len(site_ids) == 0:
+    if len(download_specs) == 0:
         sys.stderr.write('No sites found in config')
         sys.exit(1)
 
@@ -302,7 +372,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
 
-    
+    #start_time = "00:00"
+    #end_time = "23:59"
+
+    #start_time = "10:00"
+    #end_time = "16:29"
+
 
     # open a web session and login
     with requests.session() as s:
@@ -310,7 +385,12 @@ if __name__ == "__main__":
 
         login(s, username, password)
 
-        for site_id in site_ids:
+        for download_spec in download_specs:
+            site_id = download_spec['site_id']
+            years = download_spec['years']
+            months = download_spec['months']
+            start_time = download_spec['start_time']
+            end_time = download_spec['end_time']
 
             r = requests.get('https://phenocam.sr.unh.edu/webcam/archive/sites/{}/?format=json'.format(site_id))
             if r.status_code != 200:
@@ -318,16 +398,44 @@ if __name__ == "__main__":
                 sys.exit(1)
 
             monthly = json.loads(r.text)
-            #print(monthly)
+            #print("monthly: ", monthly)
+            
             monthly_file_counts = monthly["monthly_file_counts"]
-    
+
+            available_year_months={}
             for entry in monthly_file_counts:
                 year = entry["year"]
                 month = entry["month"]
+                if not year in available_year_months:
+                    available_year_months[year] = {}
 
-                last_day = calendar.monthrange(year, month)[1]
-                for day in range(1, last_day):
-                    print("download {} {}/{}/{}".format(site_id, year, month, day))
-                    download(s, site_id, year, month, day)
+                available_year_months[year][month]=1
+            
+
+            if verbose:
+                print(available_year_months)
+
+            for year in years:
+                
+                if not year in available_year_months:
+                    continue
+
+                #available_mo = available_months[year]
+
+                for month in months:
+                    if not month in available_year_months[year]:
+                        continue
+
+                    
+                    if year < 2018:
+                        print("skipping year ", year)
+                        continue
+
+                    
+                    last_day = calendar.monthrange(year, month)[1]
+                    for day in range(1, last_day):
+                        print("download {} {}/{}/{}".format(site_id, year, month, day))
+                        download(s, site_id, year, month, day, start_time , end_time)
+                        
 
         
